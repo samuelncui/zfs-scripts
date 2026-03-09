@@ -10,4 +10,6 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-exec python3 "${SCRIPT_DIR}/transmission_finish.py" "$@"
+exec python3 "${SCRIPT_DIR}/transmission_finish.py" \
+  --source "${TR_TORRENT_DIR}/${TR_TORRENT_NAME}" \
+  --target "${TARGET_DIR}/${TR_TORRENT_NAME}"

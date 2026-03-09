@@ -61,18 +61,18 @@ sudo ./zfs_rewrite_manager.py /data --reset
 ### Requirements
 
 ```bash
-./transmission_finish.sh --source /path/to/download
+./transmission_finish.sh --source /path/to/download --target /path/to/library
 ```
 
 Dry run (no writes):
 
 ```bash
-./transmission_finish.sh --source /path/to/download --dry-run
+./transmission_finish.sh --source /path/to/download --target /path/to/library --dry-run
 ```
 
 ### Usage
 
-- Reads `FINISHED_PATH` from a `.env` file or environment, then hardlinks files into that library path.
-- Source can be provided via `--source` or Transmission's `TR_TORRENT_DIR` and `TR_TORRENT_NAME`.
+- Reads `TARGET_DIR` from a `.env` file via `transmission_finish.sh`, then hardlinks files into that library path.
+- Source is provided via `--source` in `transmission_finish.sh`.
 - Runs `zfs rewrite` on the source path after linking (requires root unless `--dry-run`).
 - Set Transmission's `script-torrent-done-filename` to this script to run on completion.

@@ -28,27 +28,6 @@ def setup_logger():
 logger = setup_logger()
 
 
-def resolve_source(args):
-    if args.source:
-        return os.path.abspath(args.source)
-    tr_dir = os.environ.get("TR_TORRENT_DIR")
-    tr_name = os.environ.get("TR_TORRENT_NAME")
-    if tr_dir and tr_name:
-        return os.path.abspath(os.path.join(tr_dir, tr_name))
-    if tr_dir:
-        return os.path.abspath(tr_dir)
-    return None
-
-
-def resolve_finished(args):
-    if args.finished:
-        return os.path.abspath(args.finished)
-    env_path = os.environ.get("FINISHED_PATH")
-    if env_path:
-        return os.path.abspath(env_path)
-    return None
-
-
 def run_rewrite(target_path, dry_run):
     cmd = ["zfs", "rewrite", "-P", "-r", "-v"]
     cmd.append(target_path)
@@ -135,29 +114,29 @@ def hardlink_tree(source_path, finished_path, dry_run):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Transmission finish script: ZFS rewrite + hardlink to finished path")
+    parser = argparse.ArgumentParser(description="Transmission finish script: ZFS rewrite + hardlink to target path")
     parser.add_argument("--source", help="Absolute path to finished download")
-    parser.add_argument("--finished", help="Absolute path to finished library root")
+    parser.add_argument("--target", help="Absolute path to target library root")
     parser.add_argument("--dry-run", action="store_true", help="Simulate actions without writing")
     args = parser.parse_args()
 
-    source_path = resolve_source(args)
-    finished_path = resolve_finished(args)
+    source_path = os.path.abspath(args.source) if args.source else None
+    target_path = os.path.abspath(args.target) if args.target else None
 
     if not source_path:
-        logger.error("Source path not provided. Use --source or TR_TORRENT_DIR/TR_TORRENT_NAME.")
+        logger.error("Source path not provided. Use --source.")
         sys.exit(1)
-    if not finished_path:
-        logger.error("Finished path not provided. Use --finished or FINISHED_PATH.")
+    if not target_path:
+        logger.error("Target path not provided. Use --target.")
         sys.exit(1)
     if not os.path.exists(source_path):
         logger.error(f"Source path does not exist: {source_path}")
         sys.exit(1)
 
     logger.info(f"Source: {source_path}")
-    logger.info(f"Finished: {finished_path}")
+    logger.info(f"Target: {target_path}")
 
-    counts = hardlink_tree(source_path, finished_path, args.dry_run)
+    counts = hardlink_tree(source_path, target_path, args.dry_run)
     logger.info(
         f"Link summary: linked={counts['linked']} skipped={counts['skipped']} conflicts={counts['conflicts']} errors={counts['errors']}"
     )
