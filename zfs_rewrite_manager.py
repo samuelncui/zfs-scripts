@@ -123,7 +123,7 @@ def generate_tasks(target_path, max_bytes):
 def save_state(tasks, state_file=STATE_FILE):
     """Save the current task state to a JSON file."""
     with open(state_file, 'w') as f:
-        json.dump({"tasks": tasks}, f, indent=4)
+        json.dump({"tasks": tasks}, f, indent=4, ensure_ascii=False)
 
 def load_state(state_file=STATE_FILE):
     """Load the task state from a JSON file."""
