@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [ "$EUID" -ne 0 ]; then
-  exec sudo "$0" "$@"
+  exec sudo -E "$0" "$@"
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
