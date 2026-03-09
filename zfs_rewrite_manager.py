@@ -36,50 +36,87 @@ def setup_logger():
 
 logger = setup_logger()
 
-def get_tree_size(path):
-    """Calculate the total size of a directory or file (in bytes)."""
-    if os.path.isfile(path):
-        return os.path.getsize(path)
-    
-    total_size = 0
-    try:
-        for dirpath, _, filenames in os.walk(path):
-            for f in filenames:
-                fp = os.path.join(dirpath, f)
-                if not os.path.islink(fp): # Skip symbolic links
-                    total_size += os.path.getsize(fp)
-    except Exception as e:
-        logger.error(f"Unable to read size for directory {path}: {e}")
-    return total_size
-
 def generate_tasks(target_path, max_bytes):
     """Recursively traverse directories to generate a list of tasks not exceeding max_bytes."""
-    tasks = []
-    
+    # tasks = [{"targets": ["/path/to/file1", "/path/to/dir1"], "size_bytes": total_size, "status": "pending"}]
     if os.path.isfile(target_path):
-        size = os.path.getsize(target_path)
-        tasks.append({"path": target_path, "is_dir": False, "size_bytes": size, "status": "pending"})
-        return tasks
-
-    # If it's a directory, evaluate its total size first
-    logger.info(f"Calculating directory size: {target_path} ...")
-    total_size = get_tree_size(target_path)
-    
-    if total_size <= max_bytes:
-        logger.info(f"Directory {target_path} ({total_size / 1024**3:.2f} GB) is below the threshold, creating as a single task.")
-        tasks.append({"path": target_path, "is_dir": True, "size_bytes": total_size, "status": "pending"})
-    else:
-        logger.info(f"Directory {target_path} ({total_size / 1024**3:.2f} GB) exceeds the threshold, splitting further...")
         try:
-            with os.scandir(target_path) as it:
+            size_bytes = os.path.getsize(target_path)
+        except OSError:
+            size_bytes = 0
+        return [{"targets": [target_path], "size_bytes": size_bytes, "status": "pending"}]
+
+    children_map = {}
+    size_map = {}
+    is_dir_map = {}
+
+    stack = [(target_path, False)]
+    while stack:
+        path, expanded = stack.pop()
+        if expanded:
+            total_size = 0
+            for child_path in children_map.get(path, []):
+                total_size += size_map.get(child_path, 0)
+            size_map[path] = total_size
+            continue
+
+        stack.append((path, True))
+        children = []
+        try:
+            with os.scandir(path) as it:
                 for entry in it:
-                    if entry.is_symlink():
-                        continue
-                    # Recursively split subdirectories or files
-                    sub_tasks = generate_tasks(entry.path, max_bytes)
-                    tasks.extend(sub_tasks)
-        except PermissionError:
-            logger.error(f"Permission denied, cannot access: {target_path}")
+                    child_path = entry.path
+                    try:
+                        if entry.is_dir(follow_symlinks=False):
+                            children.append(child_path)
+                            is_dir_map[child_path] = True
+                            stack.append((child_path, False))
+                            continue
+
+                        size_map[child_path] = entry.stat(follow_symlinks=False).st_size
+                        is_dir_map[child_path] = False
+                        children.append(child_path)
+                    except OSError as e:
+                        logger.warning(f"Failed to access '{child_path}': {e}")
+
+        except OSError as e:
+            logger.warning(f"Failed to scan directory '{path}': {e}")
+        children_map[path] = children
+
+    tasks = []
+
+    def add_task(targets, size_bytes):
+        if targets:
+            tasks.append({"targets": targets, "size_bytes": size_bytes, "status": "pending"})
+
+    dir_stack = [target_path]
+    while dir_stack:
+        dir_path = dir_stack.pop()
+        children = children_map.get(dir_path, [])
+        if not children:
+            continue
+
+        current_targets = []
+        current_size = 0
+
+        for child_path in children:
+            child_size = size_map.get(child_path, 0)
+            if is_dir_map.get(child_path, False) and child_size > max_bytes:
+                add_task(current_targets, current_size)
+                current_targets = []
+                current_size = 0
+                dir_stack.append(child_path)
+                continue
+
+            if current_targets and current_size + child_size > max_bytes:
+                add_task(current_targets, current_size)
+                current_targets = [child_path]
+                current_size = child_size
+            else:
+                current_targets.append(child_path)
+                current_size += child_size
+
+        add_task(current_targets, current_size)
 
     return tasks
 
@@ -103,23 +140,25 @@ def load_state(state_file=STATE_FILE):
 
 def execute_rewrite(task, dry_run):
     """Execute a single ZFS rewrite task."""
-    path = task["path"]
-    is_dir = task["is_dir"]
+    targets = task.get("targets")
+    if not targets:
+        logger.error("Task is missing targets.")
+        return False
+
     size_gb = task.get("size_bytes", 0) / 1024**3
 
     # Build command: use -r for directories, -P to protect physical time, -v for verbose output
     cmd = ["zfs", "rewrite", "-P", "-v"]
-    if is_dir:
+    if any(os.path.isdir(path) for path in targets):
         cmd.insert(2, "-r")
-    cmd.append(path)
+    cmd.extend(targets)
 
-    cmd_str = " ".join(cmd)
-    
+    cmd_str = " ".join(cmd)    
     if dry_run:
         logger.info(f"[DRYRUN] Would execute: {cmd_str} (Estimated size: {size_gb:.2f} GB)")
         return True
 
-    logger.info(f"Starting rewrite task: {path} ({size_gb:.2f} GB)")
+    logger.info(f"Starting rewrite task: {', '.join(targets)} ({size_gb:.2f} GB)")
     logger.debug(f"Executing command: {cmd_str}")
 
     try:
@@ -133,14 +172,14 @@ def execute_rewrite(task, dry_run):
         process.wait()
         
         if process.returncode == 0:
-            logger.info(f"Task completed successfully: {path}")
+            logger.info(f"Task completed successfully: {', '.join(targets)}")
             return True
         else:
-            logger.error(f"Task failed (return code {process.returncode}): {path}")
+            logger.error(f"Task failed (return code {process.returncode}): {', '.join(targets)}")
             return False
             
     except KeyboardInterrupt:
-        logger.warning(f"Interrupt signal received! Aborting task: {path}")
+        logger.warning(f"Interrupt signal received! Aborting task: {', '.join(targets)}")
         process.terminate()
         sys.exit(130)
     except Exception as e:
@@ -204,7 +243,8 @@ def main():
             continue
             
         progress = f"[{completed_count + 1}/{len(tasks)}]"
-        logger.info(f"{progress} Preparing to process: {task['path']}")
+        targets_label = ", ".join(task.get("targets", [task.get("path", "<unknown>")]))
+        logger.info(f"{progress} Preparing to process: {targets_label}")
         
         success = execute_rewrite(task, args.dry_run)
         
