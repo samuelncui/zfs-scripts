@@ -159,7 +159,7 @@ def execute_rewrite(task, dry_run):
         return True
 
     logger.info(f"Starting rewrite task: {', '.join(targets)} ({size_gb:.2f} GB)")
-    logger.debug(f"Executing command: {cmd_str}")
+    logger.info(f"Executing command: {cmd_str}")
 
     try:
         # Use subprocess to call zfs rewrite and capture output
@@ -170,7 +170,6 @@ def execute_rewrite(task, dry_run):
             logger.debug(f"  {line.strip()}")
             
         process.wait()
-        
         if process.returncode == 0:
             logger.info(f"Task completed successfully: {', '.join(targets)}")
             return True

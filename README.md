@@ -1,10 +1,12 @@
 # ZFS Scripts
 
 A collection of utility scripts for ZFS workflows. This repository currently includes the ZFS rewrite manager, and is intended to grow with additional scripts over time.
+This repo is done by vibe coding with some test, use at your own risk.
 
 ## Included Scripts
 
 - ZFS Rewrite Manager: Chunk and resume `zfs rewrite` operations by scanning a target path, splitting work into size-bounded tasks, and persisting progress to a state file.
+- ZFS Fragmentation Analyzer: Report physical fragmentation for a file by running `zdb` on its dataset and object ID.
 
 ## Requirements
 
