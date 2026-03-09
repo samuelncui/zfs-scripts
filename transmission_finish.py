@@ -67,7 +67,7 @@ def same_inode(src, dst):
     return src_stat.st_ino == dst_stat.st_ino and src_stat.st_dev == dst_stat.st_dev
 
 
-def link_one(src, dst, dry_run, counts):
+def link_file(dst, src, dry_run, counts):
     if os.path.islink(src):
         counts["skipped"] += 1
         logger.warning(f"Skipping symlink source: {src}")
@@ -96,20 +96,19 @@ def link_one(src, dst, dry_run, counts):
         logger.error(f"Failed to link {src} -> {dst}: {e}")
 
 
-def hardlink_tree(source_path, finished_path, dry_run):
+def link(dst, src, dry_run):
     counts = {"linked": 0, "skipped": 0, "conflicts": 0, "errors": 0}
-    if os.path.isfile(source_path):
-        dest_path = os.path.join(finished_path, os.path.basename(source_path))
-        link_one(source_path, dest_path, dry_run, counts)
+    if os.path.isfile(src):
+        link_file(dst, src, dry_run, counts)
         return counts
 
-    for root, _, files in os.walk(source_path):
-        rel_root = os.path.relpath(root, source_path)
-        dest_root = finished_path if rel_root == "." else os.path.join(finished_path, rel_root)
+    for root, _, files in os.walk(src):
+        rel_root = os.path.relpath(root, src)
+        dst_root = dst if rel_root == "." else os.path.join(dst, rel_root)
         for filename in files:
             src_file = os.path.join(root, filename)
-            dst_file = os.path.join(dest_root, filename)
-            link_one(src_file, dst_file, dry_run, counts)
+            dst_file = os.path.join(dst_root, filename)
+            link_file(dst_file, src_file, dry_run, counts)
     return counts
 
 
@@ -136,7 +135,7 @@ def main():
     logger.info(f"Source: {source_path}")
     logger.info(f"Target: {target_path}")
 
-    counts = hardlink_tree(source_path, target_path, args.dry_run)
+    counts = link(target_path, source_path, args.dry_run)
     logger.info(
         f"Link summary: linked={counts['linked']} skipped={counts['skipped']} conflicts={counts['conflicts']} errors={counts['errors']}"
     )
