@@ -6,6 +6,7 @@ This repo is done by vibe coding with some test, use at your own risk.
 ## Included Scripts
 
 - ZFS Rewrite Manager: Chunk and resume `zfs rewrite` operations by scanning a target path, splitting work into size-bounded tasks, and persisting progress to a state file.
+- Transmission Finish: Hardlink finished downloads to a library path and run `zfs rewrite`.
 - ZFS Fragmentation Analyzer: Report physical fragmentation for a file by running `zdb` on its dataset and object ID.
 
 ## Requirements
@@ -54,3 +55,24 @@ sudo ./zfs_rewrite_manager.py /data --reset
 - `0` when all tasks complete or there is nothing to do
 - `1` on errors
 - `130` on interrupt
+
+## Transmission Finish
+
+### Requirements
+
+```bash
+./transmission_finish.sh --source /path/to/download
+```
+
+Dry run (no writes):
+
+```bash
+./transmission_finish.sh --source /path/to/download --dry-run
+```
+
+### Usage
+
+- Reads `FINISHED_PATH` from a `.env` file or environment, then hardlinks files into that library path.
+- Source can be provided via `--source` or Transmission's `TR_TORRENT_DIR` and `TR_TORRENT_NAME`.
+- Runs `zfs rewrite` on the source path after linking (requires root unless `--dry-run`).
+- Set Transmission's `script-torrent-done-filename` to this script to run on completion.

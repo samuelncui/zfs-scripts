@@ -148,9 +148,7 @@ def execute_rewrite(task, dry_run):
     size_gb = task.get("size_bytes", 0) / 1024**3
 
     # Build command: use -r for directories, -P to protect physical time, -v for verbose output
-    cmd = ["zfs", "rewrite", "-P", "-v"]
-    if any(os.path.isdir(path) for path in targets):
-        cmd.insert(2, "-r")
+    cmd = ["zfs", "rewrite", "-P", "-r", "-v"]
     cmd.extend(targets)
 
     cmd_str = " ".join(cmd)    
