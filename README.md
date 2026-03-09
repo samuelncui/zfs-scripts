@@ -76,3 +76,9 @@ Dry run (no writes):
 - Source is provided via `--source` in `transmission_finish.sh`.
 - Runs `zfs rewrite` on the source path after linking (requires root unless `--dry-run`).
 - Set Transmission's `script-torrent-done-filename` to this script to run on completion.
+
+If Transmission runs as the `debian-transmission` user, add a sudoers entry:
+
+```bash
+echo 'debian-transmission ALL=(ALL) NOPASSWD: SETENV: /opt/scripts/zfs-scripts/transmission_finish.sh' >> /etc/sudoers.d/transmission-daemon
+```
