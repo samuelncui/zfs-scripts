@@ -2,7 +2,10 @@
 set -euo pipefail
 
 if [ "$EUID" -ne 0 ]; then
-  exec sudo -E "$0" "$@"
+  exec sudo \
+    TR_TORRENT_DIR="${TR_TORRENT_DIR:-}" \
+    TR_TORRENT_NAME="${TR_TORRENT_NAME:-}" \
+    "$0" "$@"
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
