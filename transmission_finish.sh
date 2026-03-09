@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="${SCRIPT_DIR}/.env"
+if [ "$EUID" -ne 0 ]; then
+  exec sudo "$0" "$@"
+fi
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd ${SCRIPT_DIR}
+
+ENV_FILE="${SCRIPT_DIR}/.env"
 if [[ -f "$ENV_FILE" ]]; then
   set -a
   . "$ENV_FILE"
