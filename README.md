@@ -1,7 +1,7 @@
 # ZFS Scripts
 
 A collection of utility scripts for ZFS workflows. This repository currently includes the ZFS rewrite manager, and is intended to grow with additional scripts over time.
-This repo is done by vibe coding with some test, use at your own risk.
+This repo is done by vibe coding with some test and manual debugging on Debian 13 with ZFS 2.4.0, use at your own risk.
 
 ## Included Scripts
 
@@ -97,7 +97,20 @@ cat <<EOF >> /etc/systemd/system/transmission-daemon.service.d/finish-script.con
 [Service]
 NoNewPrivileges=false
 RestrictSUIDSGID=false
+
+# Reset and explicitly define capabilities. 
+# Added CAP_SYS_ADMIN, which is mandatory for issuing ZFS ioctls to the kernel.
 CapabilityBoundingSet=
-CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_AUDIT_WRITE
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_AUDIT_WRITE CAP_SYS_ADMIN
+
+# Punch a minimal hole for the ZFS device.
+# This avoids needing "PrivateDevices=false", keeping other hardware hidden.
+DeviceAllow=/dev/zfs rw
+BindPaths=/dev/zfs
+
+# This must be false. If isolated, ZFS cannot read the system's true 
+# mount points to figure out which dataset /data/PT/... belongs to.
+PrivateMounts=false
+
 EOF
 ```

@@ -42,7 +42,7 @@ def run_rewrite(target_path, dry_run):
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         for line in process.stdout:
-            logger.debug(f"  {line.strip()}")
+            logger.info(f"[ZFS Rewrite] {line.strip()}")
         process.wait()
         if process.returncode == 0:
             logger.info("Rewrite completed successfully.")
