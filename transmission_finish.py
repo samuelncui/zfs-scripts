@@ -28,39 +28,6 @@ def setup_logger():
 logger = setup_logger()
 
 
-def run_rewrite(target_path, dry_run):
-    cmd = ["zfs", "rewrite", "-P", "-r", "-v"]
-    cmd.append(target_path)
-    cmd_str = " ".join(cmd)
-    if dry_run:
-        logger.info(f"[DRYRUN] Would execute: {cmd_str}")
-        return True
-    if os.geteuid() != 0:
-        logger.error("Running zfs rewrite requires root privileges. Please run with sudo or as root.")
-        return False
-    logger.info(f"Executing command: {cmd_str}")
-    try:
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        for line in process.stdout:
-            logger.info(f"[ZFS Rewrite] {line.strip()}")
-        process.wait()
-        if process.returncode == 0:
-            logger.info("Rewrite completed successfully.")
-            return True
-        logger.error(f"Rewrite failed (return code {process.returncode}).")
-        return False
-    except FileNotFoundError:
-        logger.error("zfs command not found. Ensure ZFS tools are installed.")
-        return False
-    except KeyboardInterrupt:
-        logger.warning("Interrupt signal received! Aborting rewrite.")
-        process.terminate()
-        sys.exit(130)
-    except Exception as e:
-        logger.error(f"Exception occurred while executing command: {e}")
-        return False
-
-
 def same_inode(src, dst):
     src_stat = os.stat(src, follow_symlinks=False)
     dst_stat = os.stat(dst, follow_symlinks=False)
@@ -79,7 +46,7 @@ def link_file(dst, src, dry_run, counts):
             logger.info(f"Source already hardlinked elsewhere, skipping: {src}")
             return
         if os.path.exists(dst):
-            if src_stat.st_ino == os.stat(dst, follow_symlinks=False).st_ino and src_stat.st_dev == os.stat(dst, follow_symlinks=False).st_dev:
+            if same_inode(src, dst):
                 counts["skipped"] += 1
                 logger.info(f"Already linked: {dst}")
                 return
@@ -141,9 +108,6 @@ def main():
     )
 
     if counts["errors"] > 0:
-        sys.exit(1)
-
-    if not run_rewrite(source_path, args.dry_run):
         sys.exit(1)
 
 
