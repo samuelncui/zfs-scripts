@@ -70,15 +70,34 @@ Dry run (no writes):
 ./transmission_finish.sh --source /path/to/download --target /path/to/library --dry-run
 ```
 
+### Functions
+
+- Source is provided via `--source` in `transmission_finish.sh`.
+- Target is provided via `--target` in `transmission_finish.sh`.
+- Hardlinks files from source to target, so you can move files to a different location while continuing to seed.
+- Runs `zfs rewrite` on the source path after linking (requires root unless `--dry-run`) to defragment the downloaded files.
+
 ### Usage
 
 - Reads `TARGET_DIR` from a `.env` file via `transmission_finish.sh`, then hardlinks files into that library path.
-- Source is provided via `--source` in `transmission_finish.sh`.
-- Runs `zfs rewrite` on the source path after linking (requires root unless `--dry-run`).
 - Set Transmission's `script-torrent-done-filename` to this script to run on completion.
 
-If Transmission runs as the `debian-transmission` user, add a sudoers entry:
+If Transmission runs as the `debian-transmission` user:
+
+- Add a sudoers entry:
 
 ```bash
 echo 'debian-transmission ALL=(ALL) NOPASSWD: SETENV: /opt/scripts/zfs-scripts/transmission_finish.sh' >> /etc/sudoers.d/transmission-daemon
+```
+
+- Add following to `/etc/systemd/system/transmission-daemon.service.d/finish-script.conf`:
+
+```bash
+cat <<EOF >> /etc/systemd/system/transmission-daemon.service.d/finish-script.conf
+[Service]
+NoNewPrivileges=false
+RestrictSUIDSGID=false
+CapabilityBoundingSet=
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_AUDIT_WRITE
+EOF
 ```
